@@ -1,0 +1,36 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    username: root
+    password: BezR1997
+    url:
+      jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+
+indexing-settings:
+  sites:
+#    - url: https://www.lenta.ru
+#      name: Лента.ру
+#    - url: https://www.skillbox.ru
+#      name: Skillbox
+#    - url: https://www.playback.ru
+#      name: PlayBack.Ru
+     - url: http://leningrad.top
+       name: Ленинград группа
+     - url: http://irinabezrukova.ru
+       name: Irina Bezrukova
+     - url: https://noizemc.com
+       name: NoizeMC
+     - url: https://systemofadown.com/
+       name: SOAD
+
+agent-settings:
+  userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
+  referrer: http://www.google.com
