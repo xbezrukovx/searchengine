@@ -2,13 +2,13 @@ package searchengine.parser;
 
 import lombok.RequiredArgsConstructor;
 import searchengine.config.Site;
-import searchengine.model.Page;
-import searchengine.model.SiteModel;
-import searchengine.model.SiteStatusType;
+import searchengine.model.*;
+import searchengine.repos.LemmaRepository;
 import searchengine.repos.Repos;
 import searchengine.services.IndexingServiceImpl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -23,9 +23,14 @@ public class SiteParser extends Thread{
     public void run() {
         Optional<SiteModel> sitePageOptional = Repos.siteRepository.findByUrl(site.getUrl());
         sitePageOptional.ifPresent(s -> {
-            Repos.siteRepository.delete(s);
             List<Page> pages = Repos.pageRepository.findBySiteModel(s);
-            pages.forEach(Repos.pageRepository::delete);
+            pages.forEach(page -> {
+                List<Index> indexList = Repos.indexRepository.findByPage(page);
+                indexList.forEach(Repos.indexRepository::delete);
+            });
+            List<Lemma> lemmaList = Repos.lemmaRepository.findBySiteModel(s);
+            lemmaList.forEach(Repos.lemmaRepository::delete);
+            Repos.siteRepository.delete(s);
         });
         SiteModel mainPage = new SiteModel(
                 SiteStatusType.INDEXING,
@@ -46,8 +51,10 @@ public class SiteParser extends Thread{
             mainPage.setStatus(SiteStatusType.FAILED);
             mainPage.setLastError("Indexing was interrupted by user");
         }
+        mainPage.setStatusTime(LocalDateTime.now());
         synchronized (Repos.class) {
             Repos.siteRepository.save(mainPage);
         }
+        System.out.println("Сайт " + mainPage.getName() + " проиндексирован." + LocalDateTime.now());
     }
 }

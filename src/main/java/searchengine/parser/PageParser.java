@@ -5,6 +5,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import searchengine.lemma.LemmaFinder;
 import searchengine.model.Page;
 import searchengine.model.SiteModel;
 import searchengine.repos.Repos;
@@ -17,13 +18,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.*;
 
 public class PageParser extends RecursiveAction {
     private final List<String> urlsChildren = new ArrayList<>();
     private final String siteUrl;
     private final SiteModel mainPage;
     private final Connection connection;
+    private List<Page> pages = new ArrayList<>();
+
     public PageParser(SiteModel mainPage, String siteUrl){
         this.mainPage = mainPage;
         this.siteUrl = siteUrl;
@@ -61,10 +64,24 @@ public class PageParser extends RecursiveAction {
                 page.setContent(connection.response().body());
                 page.setSiteModel(mainPage);
                 mainPage.setStatusTime(LocalDateTime.now());
-                Repos.pageRepository.save(page);
+                page = Repos.pageRepository.save(page);
+                pages.add(page);
                 Repos.siteRepository.save(mainPage);
             }
         }
+        ArrayList<Thread> lemmasTask =  new ArrayList<>();
+        pages.forEach(p -> {
+            Thread task = new Thread(() -> {
+                LemmaPageParser lemmaPageParser = new LemmaPageParser(p);
+                try {
+                    lemmaPageParser.createLemma();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            task.start();
+            lemmasTask.add(task);
+        });
 
         List<RecursiveAction> tasks = new ArrayList<>();
         urlsChildren.forEach(child -> {
@@ -73,6 +90,13 @@ public class PageParser extends RecursiveAction {
             tasks.add(task);
         });
         tasks.forEach(RecursiveAction::join);
+        lemmasTask.forEach(t -> {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private List<String> getLinks(String url) {

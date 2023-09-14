@@ -3,6 +3,7 @@ package searchengine.controllers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.BadResponse;
@@ -47,6 +48,18 @@ public class ApiController {
         }
         return new ResponseEntity<Response>(
                 new BadResponse(false, "Indexing is shutdown"),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    @PostMapping("/indexPage")
+    public ResponseEntity<Response> indexPage(String url) {
+        String error = indexingService.indexPage(url);
+        if(error.isEmpty()){
+            return ResponseEntity.ok(new Response(true));
+        }
+        return new ResponseEntity<Response>(
+                new BadResponse(false, error),
                 HttpStatus.BAD_REQUEST
         );
     }

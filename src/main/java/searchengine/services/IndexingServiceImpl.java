@@ -32,11 +32,10 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
         isIndexing.set(true);
-        ExecutorService executorService = Executors.newCachedThreadPool();
         sites.getSites().forEach(site -> {
             SiteParser siteParser = new SiteParser(site);
-            siteParser.start();
             tasks.add(siteParser);
+            siteParser.start();
         });
         Thread waitingThread = new Thread(() -> {
             tasks.forEach(t -> {
@@ -59,5 +58,10 @@ public class IndexingServiceImpl implements IndexingService {
         }
         isIndexing.set(false);
         return true;
+    }
+
+    @Override
+    public String indexPage(String url) {
+        return null;
     }
 }

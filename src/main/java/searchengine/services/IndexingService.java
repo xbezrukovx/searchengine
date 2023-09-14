@@ -5,4 +5,5 @@ import org.springframework.stereotype.Service;
 public interface IndexingService {
     boolean indexingAll();
     boolean stopIndexing();
+    String indexPage(String url);
 }

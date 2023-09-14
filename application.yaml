@@ -11,7 +11,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: false
 
 indexing-settings:
@@ -28,8 +28,6 @@ indexing-settings:
        name: Irina Bezrukova
      - url: https://noizemc.com
        name: NoizeMC
-     - url: https://systemofadown.com/
-       name: SOAD
 
 agent-settings:
   userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
