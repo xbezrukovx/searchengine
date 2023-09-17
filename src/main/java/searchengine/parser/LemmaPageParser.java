@@ -11,19 +11,27 @@ import searchengine.repos.Repos;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
 import static searchengine.repos.Repos.indexRepository;
 
-@AllArgsConstructor
 public class LemmaPageParser{
-    Page page;
+    private Page page;
+    private final SiteModel siteModel;
+    private final String textHtml;
+
+    public LemmaPageParser(Page page){
+        this.page = page;
+        siteModel = page.getSiteModel();
+        textHtml = page.getContent();
+    }
+
 
     public void createLemma() throws IOException {
-        SiteModel siteModel = page.getSiteModel();
-        String textHtml = page.getContent();
         LemmaFinder lemmaFinder = new LemmaFinder();
-        HashMap<String, Integer> lemmas = lemmaFinder.countWords(page.getContent());
+        HashMap<String, Integer> lemmas = lemmaFinder.countWords(textHtml);
+        deleteInfo();
         lemmas.forEach((l, c) -> {
             Lemma lemmaModel;
             synchronized (Repos.class) {
@@ -40,6 +48,16 @@ public class LemmaPageParser{
                 Repos.lemmaRepository.save(lemmaModel);
                 createIndex(lemmaModel, c);
             }
+        });
+    }
+
+    private void deleteInfo(){
+        List<Index> indexList = Repos.indexRepository.findByPage(page);
+        indexList.forEach(i -> {
+            Lemma lemma = i.getLemma();
+            lemma.setFrequency(lemma.getFrequency() - 1);
+            Repos.lemmaRepository.save(lemma);
+            Repos.indexRepository.delete(i);
         });
     }
 

@@ -8,7 +8,10 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.SiteModel;
+import searchengine.repos.Repos;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -31,27 +34,25 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         TotalStatistics total = new TotalStatistics();
         total.setSites(sites.getSites().size());
-        total.setIndexing(true);
+        total.setIndexing(IndexingServiceImpl.isIndexing.get());
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<Site> sitesList = sites.getSites();
-        for(int i = 0; i < sitesList.size(); i++) {
-            Site site = sitesList.get(i);
+        List<SiteModel> sitesList = (List<SiteModel>) Repos.siteRepository.findAll();
+        sitesList.forEach(site -> {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(site.getName());
             item.setUrl(site.getUrl());
-            int pages = random.nextInt(1_000);
-            int lemmas = pages * random.nextInt(1_000);
+            int pages = Repos.pageRepository.findBySiteModel(site).size();
+            int lemmas = Repos.lemmaRepository.findBySiteModel(site).size();
             item.setPages(pages);
             item.setLemmas(lemmas);
-            item.setStatus(statuses[i % 3]);
-            item.setError(errors[i % 3]);
-            item.setStatusTime(System.currentTimeMillis() -
-                    (random.nextInt(10_000)));
+            item.setStatus(site.getStatus().toString());
+            item.setError(site.getLastError());
+            item.setStatusTime(Timestamp.valueOf(site.getStatusTime()).getTime());
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);
-        }
+        });
 
         StatisticsResponse response = new StatisticsResponse();
         StatisticsData data = new StatisticsData();

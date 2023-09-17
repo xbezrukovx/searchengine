@@ -5,7 +5,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import searchengine.lemma.LemmaFinder;
 import searchengine.model.Page;
 import searchengine.model.SiteModel;
 import searchengine.repos.Repos;
@@ -17,7 +16,6 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.*;
 
 public class PageParser extends RecursiveAction {
@@ -25,7 +23,7 @@ public class PageParser extends RecursiveAction {
     private final String siteUrl;
     private final SiteModel mainPage;
     private final Connection connection;
-    private List<Page> pages = new ArrayList<>();
+    private final List<Page> pages = new ArrayList<>();
 
     public PageParser(SiteModel mainPage, String siteUrl){
         this.mainPage = mainPage;
@@ -40,35 +38,34 @@ public class PageParser extends RecursiveAction {
                 .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
                 .referrer("http://www.google.com");
     }
+
+    public synchronized Page processSinglePage(String link){
+        String sitePath = "";
+        try {
+            sitePath = new URL(link).getPath();
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+        Page page = new Page();
+        page.setPath(sitePath);
+        page.setCode(connection.response().statusCode());
+        page.setContent(connection.response().body());
+        page.setSiteModel(mainPage);
+        mainPage.setStatusTime(LocalDateTime.now());
+        page = Repos.pageRepository.save(page);
+        pages.add(page);
+        Repos.siteRepository.save(mainPage);
+        return page;
+    }
     @Override
     protected void compute() {
         if (!IndexingServiceImpl.isIndexing.get()){
             return;
         }
         List<String> links = getLinks(siteUrl);
-        String sitePath = "";
-        synchronized (Repos.class) {
-            for (String link : links) {
-                try {
-                    sitePath = new URL(link).getPath();
-                } catch (MalformedURLException e) {
-                    throw new RuntimeException(e);
-                }
-                //String cropLink = link.substring(countSymbolsURL);
-                Optional<Page> pageOptional = Repos.pageRepository.findByPath(sitePath);
-                if (pageOptional.isPresent()) continue;
-                urlsChildren.add(link);
-                Page page = new Page();
-                page.setPath(sitePath);
-                page.setCode(connection.response().statusCode());
-                page.setContent(connection.response().body());
-                page.setSiteModel(mainPage);
-                mainPage.setStatusTime(LocalDateTime.now());
-                page = Repos.pageRepository.save(page);
-                pages.add(page);
-                Repos.siteRepository.save(mainPage);
-            }
-        }
+        links.forEach(this::processSinglePage);
+
+
         ArrayList<Thread> lemmasTask =  new ArrayList<>();
         pages.forEach(p -> {
             Thread task = new Thread(() -> {
