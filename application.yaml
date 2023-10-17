@@ -1,0 +1,24 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    username: root
+    password: #
+    url:
+      jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+indexing-settings:
+  sites:
+     - url: https://tretiitrest.ru
+       name: Трейтий трест
+
+agent-settings:
+  userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
+  referrer: http://www.google.com
