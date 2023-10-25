@@ -1,8 +1,8 @@
 package searchengine.repos;
 
 import org.springframework.data.repository.CrudRepository;
-import searchengine.model.Lemma;
-import searchengine.model.SiteModel;
+import searchengine.models.Lemma;
+import searchengine.models.SiteModel;
 
 import java.util.List;
 import java.util.Optional;

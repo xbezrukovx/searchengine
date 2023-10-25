@@ -1,35 +1,44 @@
-package searchengine.parser;
+package searchengine.utils;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
-import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import searchengine.model.Page;
-import searchengine.model.SiteModel;
+import searchengine.models.Page;
+import searchengine.models.SiteModel;
 import searchengine.repos.PageRepository;
-import searchengine.repos.Repos;
-import searchengine.services.IndexingServiceImpl;
+import searchengine.repos.SiteRepository;
+import searchengine.services.implementation.IndexingServiceImpl;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 public class PageParser extends RecursiveAction {
     private final String siteUrl;
     private final SiteModel mainPage;
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
+    private final LemmaPageParser lemmaPageParser;
 
-    public PageParser(SiteModel mainPage, String siteUrl) {
+    public PageParser(
+            SiteModel mainPage,
+            String siteUrl,
+            PageRepository pageRepository,
+            SiteRepository siteRepository,
+            LemmaPageParser lemmaPageParser
+    ) {
         this.mainPage = mainPage;
         this.siteUrl = siteUrl;
+        this.pageRepository = pageRepository;
+        this.siteRepository = siteRepository;
+        this.lemmaPageParser = lemmaPageParser;
     }
 
     private Page buildPage(Document doc, int statusCode){
@@ -40,9 +49,9 @@ public class PageParser extends RecursiveAction {
         page.setSiteModel(mainPage);
         page.setPath(sitePath);
         synchronized (PageRepository.class) {
-            Optional<Page> optionalPage = Repos.pageRepository.findByPathAndSiteModel(sitePath, mainPage);
+            Optional<Page> optionalPage = pageRepository.findByPathAndSiteModel(sitePath, mainPage);
             if(optionalPage.isPresent()) return null;
-            page = Repos.pageRepository.save(page);
+            page = pageRepository.save(page);
         }
         return page;
     }
@@ -51,42 +60,44 @@ public class PageParser extends RecursiveAction {
         List<String> paths = new ArrayList<>(links.stream()
                 .map(this::getSitePath)
                 .toList());
-        List<Page> pages = Repos.pageRepository.findByPathInAndSiteModel(paths, mainPage);
+        List<Page> pages = pageRepository.findByPathInAndSiteModel(paths, mainPage);
         paths.removeAll(pages.stream().map(Page::getPath).toList());
         return paths.stream().map(p -> mainPage.getUrl() + p).distinct().toList();
     }
 
-    @Override
-    protected void compute() {
-        if (!IndexingServiceImpl.isIndexing.get()) return;  // Try to exit if indexing had been interrupted
+    public Document processThePage() {
         Connection connection = getConnection();
-        Document doc = null;
+        Document doc;
         try {
             doc = connection.get();
         } catch (IOException e){
-            return;
+            return null;
         }
         int statusCode = connection.response().statusCode();
         Page page = buildPage(doc, statusCode);
-        if (page == null) return;
-        List<String> childrenUrls = getLinks(siteUrl, doc);
-        List<String> unhandledLinks;
-
-        unhandledLinks = getUnhandledLinks(childrenUrls);
-        mainPage.setStatusTime(LocalDateTime.now());
-        Repos.siteRepository.save(mainPage);
-
-        LemmaPageParser lemmaPageParser = new LemmaPageParser(page);
+        if (page == null) return null;
         try {
-            lemmaPageParser.createLemma();
+            lemmaPageParser.createLemma(page);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        mainPage.setStatusTime(LocalDateTime.now());
+        siteRepository.save(mainPage);
+        return doc;
+    }
 
-        // Making branches
+    @Override
+    protected void compute() {
+        if (IndexingServiceImpl.getIsIndexing()) return;  // Try to exit if indexing had been interrupted
+        Document doc = processThePage();
+        if (doc == null) return;
+
+        // Makes branches
+        List<String> childrenUrls = getLinks(siteUrl, doc);
+        List<String> unhandledLinks = getUnhandledLinks(childrenUrls);
         List<RecursiveAction> tasks = new ArrayList<>();
         unhandledLinks.forEach(child -> {
-            PageParser task = new PageParser(mainPage, child);
+            PageParser task = new PageParser(mainPage, child, pageRepository, siteRepository, lemmaPageParser);
             task.fork();
             tasks.add(task);
         });

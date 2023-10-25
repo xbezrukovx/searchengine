@@ -1,17 +1,19 @@
 package searchengine.controllers;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.BadResponse;
 import searchengine.dto.Response;
 import searchengine.dto.search.SearchResponse;
+import searchengine.dto.search.SiteResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.model.SiteModel;
+import searchengine.models.SiteModel;
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
-import searchengine.services.SearchServiceImpl;
 import searchengine.services.StatisticsService;
 
 import java.io.IOException;
@@ -72,14 +74,16 @@ public class ApiController {
 
     //TODO: Return some model
     @GetMapping("/search")
-    public SearchResponse search(String query, String site, int offset, int limit) throws IOException {
-        if (query == null) return null;
-        if (site == null){
-            return searchService.allSiteSearch(query, offset, limit);
-        } else {
-            SiteModel siteModel = searchService.findSiteModel(site);
-            if (siteModel == null) return null;
-            return searchService.siteSearch(query, siteModel, offset, limit);
+    public ResponseEntity<SearchResponse> search(String query, String site, Integer offset, Integer limit) throws IOException {
+        if (offset == null) offset = 0;
+        if (limit == null) limit = 20;
+        SearchResponse searchResponse = searchService.siteSearch(query, site, offset, limit);
+        HttpStatus status = HttpStatus.OK;
+        if (!searchResponse.getError().isEmpty()) {
+            searchResponse.setResult(false);
+            status = HttpStatus.BAD_REQUEST;
         }
+
+        return new ResponseEntity<SearchResponse>(searchResponse, status) ;
     }
 }

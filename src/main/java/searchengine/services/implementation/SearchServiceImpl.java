@@ -1,16 +1,20 @@
-package searchengine.services;
+package searchengine.services.implementation;
 
-import lombok.NoArgsConstructor;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
+import searchengine.dto.BadResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.search.SiteResponse;
-import searchengine.lemma.LemmaFinder;
-import searchengine.model.Index;
-import searchengine.model.Lemma;
-import searchengine.model.Page;
-import searchengine.model.SiteModel;
-import searchengine.repos.Repos;
+import searchengine.utils.MorphologyUtil;
+import searchengine.models.Index;
+import searchengine.models.Lemma;
+import searchengine.models.Page;
+import searchengine.models.SiteModel;
+import searchengine.repos.IndexRepository;
+import searchengine.repos.LemmaRepository;
+import searchengine.repos.PageRepository;
+import searchengine.repos.SiteRepository;
+import searchengine.services.SearchService;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -19,72 +23,61 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@NoArgsConstructor
 public class SearchServiceImpl implements SearchService {
-    private final static int SNIPPET_OFFSET = 10;
-    @Override
-    public SearchResponse siteSearch(String query, SiteModel site, int offset, int limit) throws IOException {
-        SearchResponse searchResponse = new SearchResponse();
-        List<String> queryLemmas = getLemmas(query);
-        List<Lemma> lemmaList = Repos.lemmaRepository.findBySiteModelAndLemmaInOrderByFrequencyAsc(site, queryLemmas);
-        if (lemmaList.size() == 0) return searchResponse;
-        int countPages = Repos.pageRepository.findCountPages(lemmaList.get(0).getSiteModel().getId());
-        List<Index> indexes = new ArrayList<>();
-        for (int i = 0; i < lemmaList.size(); i++) {
-            Lemma lemma = lemmaList.get(i);
-            if ((float) lemma.getFrequency() / countPages > 0.8f) continue;
-            if (i == 0) {
-                indexes = Repos.indexRepository.findByLemma(lemma);
-            }
-            List<Page> pages = indexes.stream().map(Index::getPage).toList();
-            indexes = Repos.indexRepository.findByPageInAndLemma(pages, lemma);
-        }
-        HashMap<Page, Float> pageRelevanceMap = calculateRelevance(indexes);
-        HashMap<Page, Float> pageRelRelevanceMap = calculateRelRelevance(pageRelevanceMap);
+    private final LemmaRepository lemmaRepository;
+    private final PageRepository pageRepository;
+    private final IndexRepository indexRepository;
+    private final SiteRepository siteRepository;
 
-        List<SiteResponse> siteResponses = new ArrayList<>();
-        int count = 0;
-        for (Page p : pageRelRelevanceMap.keySet()) {
-            count++;
-            LemmaFinder lemmaFinder = new LemmaFinder();
-            String snippet = lemmaFinder.getSnippet(p.getContent(), lemmaList);
-            SiteResponse siteResponse = new SiteResponse();
-            siteResponse.setSite(p.getSiteModel().getUrl());
-            siteResponse.setSiteName(p.getSiteModel().getName());
-            siteResponse.setSnippet(snippet);
-            siteResponse.setUri(p.getPath());
-            siteResponse.setRelevance(pageRelRelevanceMap.get(p));
-            siteResponse.setTitle(getPageTitle(p));
-            siteResponses.add(siteResponse);
-        }
-        searchResponse.setCount(count);
-        searchResponse.setData(siteResponses);
-        searchResponse.setResult(true);
-        return searchResponse;
+    public SearchServiceImpl(
+            LemmaRepository lemmaRepository,
+            PageRepository pageRepository,
+            IndexRepository indexRepository,
+            SiteRepository siteRepository
+    ){
+        this.lemmaRepository = lemmaRepository;
+        this.pageRepository = pageRepository;
+        this.indexRepository = indexRepository;
+        this.siteRepository = siteRepository;
     }
 
     @Override
-    public SearchResponse allSiteSearch(String query, int offset, int limit) throws IOException {
+    public SearchResponse siteSearch(String query, String site, int offset, int limit) throws IOException {
         SearchResponse searchResponse = new SearchResponse();
+        SiteModel siteModel = null;
+        if (site != null && site.isBlank()) {
+            siteModel = findSiteModel(site);
+            if (siteModel == null) {
+                searchResponse.setError("No such site exists.");
+                return searchResponse;
+            }
+        }
         List<String> queryLemmas = getLemmas(query);
-        List<Lemma> lemmaList = Repos.lemmaRepository.findByLemmaInOrderByFrequencyAsc(queryLemmas);
-        if (lemmaList.size() == 0) return searchResponse;
-        List<SiteModel> siteModels = lemmaList.stream().map(Lemma::getSiteModel).distinct().toList();
-        HashMap<SiteModel, List<Lemma>> siteLemmas = new HashMap<>();
+        List<Lemma> lemmaList = lemmaRepository.findByLemmaInOrderByFrequencyAsc(queryLemmas);
+        if (lemmaList.size() == 0) {
+            searchResponse.setError("Search index doesn't exists.");
+            return searchResponse;
+        }
+        List<SiteModel> siteModels = new ArrayList<>();
+        if (siteModel == null) {
+            siteModels = lemmaList.stream().map(Lemma::getSiteModel).distinct().toList();
+        } else {
+            siteModels.add(siteModel);
+        }
         List<List<Index>> indexesList = new ArrayList<>();
         for (SiteModel s : siteModels) {
             List<Lemma> lemmas = lemmaList.stream().filter(l -> l.getSiteModel().equals(s)).toList();
             if (lemmas.size() == 0) continue;
-            int countPages = Repos.pageRepository.findCountPages(s.getId());
+            int countPages = pageRepository.findCountPages(s.getId());
             List<Index> indexes = new ArrayList<>();
             for (int i = 0; i < lemmaList.size(); i++) {
                 Lemma lemma = lemmaList.get(i);
                 if ((float) lemma.getFrequency() / countPages > 0.8f) continue;
                 if (i==0) {
-                    indexes =  Repos.indexRepository.findByLemma(lemmas.get(0));
+                    indexes =  indexRepository.findByLemma(lemmas.get(0));
                 }
                 List<Page> pages = indexes.stream().map(Index::getPage).toList();
-                indexes = Repos.indexRepository.findByPageInAndLemma(pages, lemma);
+                indexes = indexRepository.findByPageInAndLemma(pages, lemma);
             }
             indexesList.add(indexes);
         }
@@ -95,10 +88,14 @@ public class SearchServiceImpl implements SearchService {
 
         List<SiteResponse> siteResponses = new ArrayList<>();
         int count = 0;
-        for (Page p : pageRelRelevanceMap.keySet()) {
+        List<Page> pages = pageRelRelevanceMap.keySet().stream().toList();
+        int last =  Math.min(pages.size(), limit+offset);
+        offset = Math.min(pages.size(), offset);
+        for (int i = offset; i < last; i++) {
+            Page p = pages.get(i);
             count++;
-            LemmaFinder lemmaFinder = new LemmaFinder();
-            String snippet = lemmaFinder.getSnippet(p.getContent(), lemmaList);
+            MorphologyUtil morphologyUtil = new MorphologyUtil();
+            String snippet = morphologyUtil.getSnippet(p.getContent(), lemmaList);
             SiteResponse siteResponse = new SiteResponse();
             siteResponse.setSite(p.getSiteModel().getUrl());
             siteResponse.setSiteName(p.getSiteModel().getName());
@@ -108,7 +105,7 @@ public class SearchServiceImpl implements SearchService {
             siteResponse.setTitle(getPageTitle(p));
             siteResponses.add(siteResponse);
         }
-        searchResponse.setCount(count);
+        searchResponse.setCount(pages.size());
         searchResponse.setData(siteResponses);
         searchResponse.setResult(true);
         return searchResponse;
@@ -147,13 +144,12 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private List<String> getLemmas(String text) throws IOException {
-        LemmaFinder lemmaFinder = new LemmaFinder();
-        Set<String> queryWordsSet = lemmaFinder.getLemmas(text).keySet();
+        MorphologyUtil morphologyUtil = new MorphologyUtil();
+        Set<String> queryWordsSet = morphologyUtil.getLemmas(text).keySet();
         return new ArrayList<>(queryWordsSet);
     }
 
-    @Override
-    public SiteModel findSiteModel(String url) {
+    private SiteModel findSiteModel(String url) {
         String domain;
         try {
             domain = new URL(url).getHost();
@@ -161,9 +157,9 @@ public class SearchServiceImpl implements SearchService {
             throw new RuntimeException(e);
         }
 
-        Optional<SiteModel> siteModelOptional = Repos.siteRepository.findByUrl("http://" + domain);
+        Optional<SiteModel> siteModelOptional = siteRepository.findByUrl("http://" + domain);
         if (siteModelOptional.isEmpty()) {
-            siteModelOptional = Repos.siteRepository.findByUrl("https://" + domain);
+            siteModelOptional = siteRepository.findByUrl("https://" + domain);
             if (siteModelOptional.isEmpty()) return null;
         }
         return siteModelOptional.get();

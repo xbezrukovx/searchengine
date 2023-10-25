@@ -1,35 +1,49 @@
-package searchengine.services;
+package searchengine.services.implementation;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.lemma.LemmaFinder;
-import searchengine.model.*;
-import searchengine.parser.LemmaPageParser;
-import searchengine.parser.SiteParser;
-import searchengine.repos.Repos;
-import searchengine.parser.PageParser;
+import searchengine.models.*;
+import searchengine.repos.IndexRepository;
+import searchengine.repos.LemmaRepository;
+import searchengine.utils.LemmaPageParser;
+import searchengine.utils.PageParser;
+import searchengine.utils.SiteParser;
+import searchengine.repos.PageRepository;
+import searchengine.repos.SiteRepository;
+import searchengine.services.IndexingService;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
     private final SitesList sites;
-    public static final AtomicBoolean isIndexing = new AtomicBoolean(false);
-    private List<Thread> tasks = new ArrayList<>();
+    private final List<Thread> tasks = new ArrayList<>();
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final IndexRepository indexRepository;
+    private final LemmaRepository lemmaRepository;
+    private final LemmaPageParser lemmaPageParser;
     private static Thread waitingThread;
+    private static final AtomicBoolean isIndexing = new AtomicBoolean(false);
+
+    public IndexingServiceImpl(
+            SiteRepository siteRepository,
+            PageRepository pageRepository,
+            IndexRepository indexRepository,
+            LemmaRepository lemmaRepository,
+            LemmaPageParser lemmaPageParser,
+            SitesList sites
+    ) {
+        this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+        this.indexRepository = indexRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.lemmaPageParser = lemmaPageParser;
+        this.sites = sites;
+    }
 
     @Override
     public boolean indexingAll() {
@@ -37,7 +51,7 @@ public class IndexingServiceImpl implements IndexingService {
         if (waitingThread != null && waitingThread.isAlive()) return false;
         isIndexing.set(true);
         sites.getSites().forEach(site -> {
-            SiteParser siteParser = new SiteParser(site);
+            SiteParser siteParser = new SiteParser(site, pageRepository, siteRepository, indexRepository, lemmaRepository, lemmaPageParser);
             tasks.add(siteParser);
             siteParser.start();
         });
@@ -76,26 +90,21 @@ public class IndexingServiceImpl implements IndexingService {
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
-        System.out.println("domain: " + domain + " path: " + path);
 
-        Optional<SiteModel> siteModelOptional = Repos.siteRepository.findByUrl("http://"+domain);
+        Optional<SiteModel> siteModelOptional = siteRepository.findByUrl("http://"+domain);
         if (siteModelOptional.isEmpty()) {
-            siteModelOptional = Repos.siteRepository.findByUrl("https://"+domain);
+            siteModelOptional = siteRepository.findByUrl("https://"+domain);
             if (siteModelOptional.isEmpty()) return "Сайта нет в конфигурации";
         }
 
         SiteModel siteModel = siteModelOptional.get();
-        System.out.println("site_model_id = " + siteModel.getId());
-        Optional<Page> pageOptional = Repos.pageRepository.findByPathAndSiteModel(path, siteModel);
-        if(pageOptional.isEmpty()) return "Страница не существует";
-        Page page;
-        //page = pageOptional.orElseGet(() -> new PageParser(siteModel, path).processSinglePage(path));
-        //LemmaPageParser lemmaPageParser = new LemmaPageParser(page);
-//        try {
-//            lemmaPageParser.createLemma();
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
+        new PageParser(siteModel,siteModel.getUrl()+path, pageRepository, siteRepository, lemmaPageParser)
+            .processThePage();
+
         return null;
+    }
+
+    public static boolean getIsIndexing() {
+        return isIndexing.get();
     }
 }

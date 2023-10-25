@@ -11,4 +11,5 @@ public class SearchResponse {
     boolean result;
     int count;
     List<SiteResponse> data;
+    String error;
 }
