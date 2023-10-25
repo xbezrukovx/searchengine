@@ -1,5 +1,5 @@
 # Search Engine
-The search engine is a Spring application (running on any server or computer) that works with a locally installed MySQL database. It has a simple web interface and API through which you can manage and receive search results for a query
+The search engine is a Spring application (running on any server or computer) that works with a locally installed MySQL database. It has a simple web interface and API through which you can manage and receive search results for a query.
 ## ✨ Features
 - Ability to search by query
 - Indexing of sites and pages;
@@ -50,6 +50,7 @@ Example of a response:
          ...
       ]
    }
+}
 ```
 #### `GET` /api/startIndexing
 The method starts full indexing of all sites or full re-indexing if they are already indexed.
@@ -155,7 +156,7 @@ There is statistics information.
 ![Imgur](https://i.imgur.com/wu6QGer.png)
 ### Search:
 Exmaple of searching.
-![Imgur](https://i.imgur.com/0WcM1ee.png)
+![Imgur](https://i.imgur.com/a0lRFGr.png)
 
 ## Author
 ### 👤 **Denis Bezrukov**
