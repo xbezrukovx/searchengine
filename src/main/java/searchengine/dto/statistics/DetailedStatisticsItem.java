@@ -1,7 +1,9 @@
 package searchengine.dto.statistics;
 
+import lombok.Builder;
 import lombok.Data;
 
+@Builder
 @Data
 public class DetailedStatisticsItem {
     private String url;

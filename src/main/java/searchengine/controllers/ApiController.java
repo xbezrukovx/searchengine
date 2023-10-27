@@ -72,14 +72,13 @@ public class ApiController {
         );
     }
 
-    //TODO: Return some model
     @GetMapping("/search")
     public ResponseEntity<SearchResponse> search(String query, String site, Integer offset, Integer limit) throws IOException {
         if (offset == null) offset = 0;
         if (limit == null) limit = 20;
         SearchResponse searchResponse = searchService.siteSearch(query, site, offset, limit);
         HttpStatus status = HttpStatus.OK;
-        if (!searchResponse.getError().isEmpty()) {
+        if (searchResponse.getError() != null && !searchResponse.getError().isEmpty()) {
             searchResponse.setResult(false);
             status = HttpStatus.BAD_REQUEST;
         }

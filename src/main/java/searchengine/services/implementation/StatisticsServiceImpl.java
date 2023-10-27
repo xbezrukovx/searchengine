@@ -37,27 +37,29 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<SiteModel> sitesList = (List<SiteModel>) siteRepository.findAll();
         sitesList.forEach(site -> {
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
             int pages = pageRepository.findBySiteModel(site).size();
             int lemmas = lemmaRepository.findBySiteModel(site).size();
-            item.setPages(pages);
-            item.setLemmas(lemmas);
-            item.setStatus(site.getStatus().toString());
-            item.setError(site.getLastError());
-            item.setStatusTime(Timestamp.valueOf(site.getStatusTime()).getTime());
+            DetailedStatisticsItem item = DetailedStatisticsItem.builder()
+                    .name(site.getName())
+                    .url(site.getUrl())
+                    .pages(pages)
+                    .lemmas(lemmas)
+                    .status(site.getStatus().toString())
+                    .error(site.getLastError())
+                    .statusTime(Timestamp.valueOf(site.getStatusTime()).getTime())
+                    .build();
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);
         });
 
-        StatisticsResponse response = new StatisticsResponse();
-        StatisticsData data = new StatisticsData();
-        data.setTotal(total);
-        data.setDetailed(detailed);
-        response.setStatistics(data);
-        response.setResult(true);
-        return response;
+        StatisticsData data = StatisticsData.builder()
+                .total(total)
+                .detailed(detailed)
+                .build();
+        return StatisticsResponse.builder()
+                .statistics(data)
+                .result(true)
+                .build();
     }
 }

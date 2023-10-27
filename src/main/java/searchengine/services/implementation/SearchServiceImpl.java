@@ -2,7 +2,6 @@ package searchengine.services.implementation;
 
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
-import searchengine.dto.BadResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.search.SiteResponse;
 import searchengine.utils.MorphologyUtil;
@@ -47,23 +46,56 @@ public class SearchServiceImpl implements SearchService {
         SiteModel siteModel = null;
         if (site != null && site.isBlank()) {
             siteModel = findSiteModel(site);
-            if (siteModel == null) {
-                searchResponse.setError("No such site exists.");
-                return searchResponse;
-            }
+            if (siteModel == null) searchResponse.setError("No such site exists.");
         }
         List<String> queryLemmas = getLemmas(query);
         List<Lemma> lemmaList = lemmaRepository.findByLemmaInOrderByFrequencyAsc(queryLemmas);
-        if (lemmaList.size() == 0) {
-            searchResponse.setError("Search index doesn't exists.");
-            return searchResponse;
-        }
+        if (lemmaList.size() == 0) searchResponse.setError("Search index doesn't exists.");
+        if (searchResponse.getError() != null) return searchResponse;
+
         List<SiteModel> siteModels = new ArrayList<>();
         if (siteModel == null) {
             siteModels = lemmaList.stream().map(Lemma::getSiteModel).distinct().toList();
         } else {
             siteModels.add(siteModel);
         }
+
+        HashMap<Page, Float> pageRelRelevanceMap = getRelevancePages(siteModels, lemmaList);
+        return getSearchResponse(pageRelRelevanceMap, lemmaList, limit, offset);
+    }
+
+    private SearchResponse getSearchResponse(
+            HashMap<Page, Float> pageRelRelevanceMap,
+            List<Lemma> queryWords,
+            int limit,
+            int offset
+    ) throws IOException {
+        SearchResponse searchResponse = new SearchResponse();
+        List<SiteResponse> siteResponses = new ArrayList<>();
+        List<Page> pages = pageRelRelevanceMap.keySet().stream().toList();
+        int last =  Math.min(pages.size(), limit+offset);
+        offset = Math.min(pages.size(), offset);
+        for (int i = offset; i < last; i++) {
+            Page p = pages.get(i);
+            MorphologyUtil morphologyUtil = new MorphologyUtil();
+            String snippet = morphologyUtil.getSnippet(p.getContent(), queryWords);
+            SiteResponse siteResponse = SiteResponse.builder()
+                    .site(p.getSiteModel().getUrl())
+                    .siteName(p.getSiteModel().getName())
+                    .snippet(snippet)
+                    .uri(p.getPath())
+                    .relevance(pageRelRelevanceMap.get(p))
+                    .title(getPageTitle(p))
+                    .build();
+            siteResponses.add(siteResponse);
+        }
+        searchResponse.setCount(pages.size());
+        searchResponse.setData(siteResponses);
+        searchResponse.setResult(true);
+        return searchResponse;
+    }
+
+    private HashMap<Page, Float> getRelevancePages(List<SiteModel> siteModels, List<Lemma> lemmaList){
         List<List<Index>> indexesList = new ArrayList<>();
         for (SiteModel s : siteModels) {
             List<Lemma> lemmas = lemmaList.stream().filter(l -> l.getSiteModel().equals(s)).toList();
@@ -84,31 +116,7 @@ public class SearchServiceImpl implements SearchService {
 
         List<Index> indexes = indexesList.stream().flatMap(Collection::stream).toList();
         HashMap<Page, Float> pageRelevanceMap = calculateRelevance(indexes);
-        HashMap<Page, Float> pageRelRelevanceMap = calculateRelRelevance(pageRelevanceMap);
-
-        List<SiteResponse> siteResponses = new ArrayList<>();
-        int count = 0;
-        List<Page> pages = pageRelRelevanceMap.keySet().stream().toList();
-        int last =  Math.min(pages.size(), limit+offset);
-        offset = Math.min(pages.size(), offset);
-        for (int i = offset; i < last; i++) {
-            Page p = pages.get(i);
-            count++;
-            MorphologyUtil morphologyUtil = new MorphologyUtil();
-            String snippet = morphologyUtil.getSnippet(p.getContent(), lemmaList);
-            SiteResponse siteResponse = new SiteResponse();
-            siteResponse.setSite(p.getSiteModel().getUrl());
-            siteResponse.setSiteName(p.getSiteModel().getName());
-            siteResponse.setSnippet(snippet);
-            siteResponse.setUri(p.getPath());
-            siteResponse.setRelevance(pageRelRelevanceMap.get(p));
-            siteResponse.setTitle(getPageTitle(p));
-            siteResponses.add(siteResponse);
-        }
-        searchResponse.setCount(pages.size());
-        searchResponse.setData(siteResponses);
-        searchResponse.setResult(true);
-        return searchResponse;
+        return calculateRelRelevance(pageRelevanceMap);
     }
 
     private String getPageTitle(Page page) {

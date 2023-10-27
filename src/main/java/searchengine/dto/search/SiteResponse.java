@@ -1,10 +1,11 @@
 package searchengine.dto.search;
 
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
+@Builder
 public class SiteResponse {
     String site;
     String siteName;
