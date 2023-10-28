@@ -1,5 +1,7 @@
 package searchengine.services.implementation;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import searchengine.dto.search.SearchResponse;
@@ -27,6 +29,7 @@ public class SearchServiceImpl implements SearchService {
     private final PageRepository pageRepository;
     private final IndexRepository indexRepository;
     private final SiteRepository siteRepository;
+    private final Logger logger = LogManager.getRootLogger();
 
     public SearchServiceImpl(
             LemmaRepository lemmaRepository,
@@ -51,7 +54,10 @@ public class SearchServiceImpl implements SearchService {
         List<String> queryLemmas = getLemmas(query);
         List<Lemma> lemmaList = lemmaRepository.findByLemmaInOrderByFrequencyAsc(queryLemmas);
         if (lemmaList.size() == 0) searchResponse.setError("Search index doesn't exists.");
-        if (searchResponse.getError() != null) return searchResponse;
+        if (searchResponse.getError() != null) {
+            logger.info("Query processing: " + searchResponse.getError());
+            return searchResponse;
+        }
 
         List<SiteModel> siteModels = new ArrayList<>();
         if (siteModel == null) {
@@ -89,6 +95,7 @@ public class SearchServiceImpl implements SearchService {
                     .build();
             siteResponses.add(siteResponse);
         }
+        logger.info("Search query: " + pages.size() + " pages found.");
         searchResponse.setCount(pages.size());
         searchResponse.setData(siteResponses);
         searchResponse.setResult(true);

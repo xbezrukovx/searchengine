@@ -1,5 +1,7 @@
 package searchengine.utils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -26,6 +28,7 @@ public class PageParser extends RecursiveAction {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private final LemmaPageParser lemmaPageParser;
+    private final Logger logger = LogManager.getRootLogger();
 
     public PageParser(
             SiteModel mainPage,
@@ -71,6 +74,7 @@ public class PageParser extends RecursiveAction {
         try {
             doc = connection.get();
         } catch (IOException e){
+            logger.error(e.getMessage());
             return null;
         }
         int statusCode = connection.response().statusCode();
@@ -79,6 +83,7 @@ public class PageParser extends RecursiveAction {
         try {
             lemmaPageParser.createLemma(page);
         } catch (IOException e) {
+            logger.error(e.getMessage());
             throw new RuntimeException(e);
         }
         mainPage.setStatusTime(LocalDateTime.now());
@@ -135,7 +140,7 @@ public class PageParser extends RecursiveAction {
         try {
             sitePath = new URL(link).getPath();
         } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+            return sitePath;
         }
         return sitePath;
     }
@@ -144,6 +149,7 @@ public class PageParser extends RecursiveAction {
         try {
             Thread.sleep(130);
         } catch (InterruptedException e) {
+            logger.error(e.getMessage());
             throw new RuntimeException(e);
         }
         return Jsoup.connect(siteUrl)

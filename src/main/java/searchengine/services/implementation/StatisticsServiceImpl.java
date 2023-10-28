@@ -1,6 +1,8 @@
 package searchengine.services.implementation;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -26,6 +28,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
+    private final Logger logger = LogManager.getRootLogger();
 
 
     @Override
@@ -53,6 +56,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             detailed.add(item);
         });
 
+        logger.info("Statistics information has been prepared.");
         StatisticsData data = StatisticsData.builder()
                 .total(total)
                 .detailed(detailed)

@@ -1,5 +1,7 @@
 package searchengine.services.implementation;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import searchengine.config.SitesList;
 import searchengine.models.*;
@@ -28,6 +30,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final LemmaPageParser lemmaPageParser;
     private static Thread waitingThread;
     private static final AtomicBoolean isIndexing = new AtomicBoolean(false);
+    private final Logger logger = LogManager.getRootLogger();
 
     public IndexingServiceImpl(
             SiteRepository siteRepository,
@@ -50,6 +53,7 @@ public class IndexingServiceImpl implements IndexingService {
         if (isIndexing.get()) return false;
         if (waitingThread != null && waitingThread.isAlive()) return false;
         isIndexing.set(true);
+        logger.info("Indexing has been started.");
         sites.getSites().forEach(site -> {
             SiteParser siteParser = new SiteParser(site, pageRepository, siteRepository, indexRepository, lemmaRepository, lemmaPageParser);
             tasks.add(siteParser);
@@ -64,6 +68,7 @@ public class IndexingServiceImpl implements IndexingService {
                 }
             });
             isIndexing.set(false);
+            logger.info("Indexing has been finished.");
         });
         waitingThread.start();
         return true;
@@ -74,7 +79,7 @@ public class IndexingServiceImpl implements IndexingService {
         if (waitingThread == null) return false;
         isIndexing.set(false);
         if (waitingThread.isAlive()){
-            System.out.println("Потоки еще не завершились");
+            logger.info("Threads are working now.");
             return true;
         };
         return true;
@@ -94,7 +99,10 @@ public class IndexingServiceImpl implements IndexingService {
         Optional<SiteModel> siteModelOptional = siteRepository.findByUrl("http://"+domain);
         if (siteModelOptional.isEmpty()) {
             siteModelOptional = siteRepository.findByUrl("https://"+domain);
-            if (siteModelOptional.isEmpty()) return "Сайта нет в конфигурации";
+            if (siteModelOptional.isEmpty()) {
+                logger.info("This site is not in the configuration.");
+                return "This site is not in the configuration.";
+            }
         }
 
         SiteModel siteModel = siteModelOptional.get();

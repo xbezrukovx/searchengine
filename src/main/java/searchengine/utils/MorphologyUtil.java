@@ -1,5 +1,7 @@
 package searchengine.utils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.WrongCharaterException;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -19,6 +21,7 @@ public class MorphologyUtil {
     private final String regex = "[^А-яЁё]"; //Only Russian
     private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ"};
     private final LuceneMorphology luceneMorph = new RussianLuceneMorphology();
+    private final Logger logger = LogManager.getRootLogger();
 
     public MorphologyUtil()  throws IOException{
     }
@@ -50,7 +53,7 @@ public class MorphologyUtil {
                     try {
                         return getLemmas(value).keySet();
                     }catch (IOException ex) {
-                        ex.printStackTrace();
+                        logger.error(ex.getMessage());
                         return new HashSet<>();
                     }
                 }));
