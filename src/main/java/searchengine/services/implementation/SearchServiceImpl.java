@@ -49,11 +49,15 @@ public class SearchServiceImpl implements SearchService {
         SiteModel siteModel = null;
         if (site != null && site.isBlank()) {
             siteModel = findSiteModel(site);
-            if (siteModel == null) searchResponse.setError("No such site exists.");
+            if (siteModel == null) {
+                searchResponse.setError("No such site exists.");
+            }
         }
         List<String> queryLemmas = getLemmas(query);
         List<Lemma> lemmaList = lemmaRepository.findByLemmaInOrderByFrequencyAsc(queryLemmas);
-        if (lemmaList.size() == 0) searchResponse.setError("Search index doesn't exists.");
+        if (lemmaList.size() == 0) {
+            searchResponse.setError("Search index doesn't exists.");
+        }
         if (searchResponse.getError() != null) {
             logger.info("Query processing: " + searchResponse.getError());
             return searchResponse;
@@ -106,12 +110,16 @@ public class SearchServiceImpl implements SearchService {
         List<List<Index>> indexesList = new ArrayList<>();
         for (SiteModel s : siteModels) {
             List<Lemma> lemmas = lemmaList.stream().filter(l -> l.getSiteModel().equals(s)).toList();
-            if (lemmas.size() == 0) continue;
+            if (lemmas.size() == 0) {
+                continue;
+            }
             int countPages = pageRepository.findCountPages(s.getId());
             List<Index> indexes = new ArrayList<>();
             for (int i = 0; i < lemmaList.size(); i++) {
                 Lemma lemma = lemmaList.get(i);
-                if ((float) lemma.getFrequency() / countPages > 0.8f) continue;
+                if ((float) lemma.getFrequency() / countPages > 0.8f) {
+                    continue;
+                }
                 if (i==0) {
                     indexes =  indexRepository.findByLemma(lemmas.get(0));
                 }
@@ -138,7 +146,9 @@ public class SearchServiceImpl implements SearchService {
                     .filter(i -> i.getPage().equals(p))
                     .map(Index::getRank)
                     .reduce(Float::sum);
-            if (relevanceOptional.isEmpty()) continue;
+            if (relevanceOptional.isEmpty()) {
+                continue;
+            }
             Float relevance = relevanceOptional.get();
             relevanceMap.put(p, relevance);
         }
@@ -149,7 +159,9 @@ public class SearchServiceImpl implements SearchService {
 
     private HashMap<Page, Float> calculateRelRelevance(HashMap<Page, Float> relevanceMap) {
         HashMap<Page, Float> relRelevanceMap = new HashMap<>();
-        if (relevanceMap.size() == 0) return relRelevanceMap;
+        if (relevanceMap.size() == 0) {
+            return relRelevanceMap;
+        }
         Float absRelevantMax = Collections.max(relevanceMap.values());
         relevanceMap.forEach((p, r) -> {
             Float absRelevant = r / absRelevantMax;
@@ -175,7 +187,9 @@ public class SearchServiceImpl implements SearchService {
         Optional<SiteModel> siteModelOptional = siteRepository.findByUrl("http://" + domain);
         if (siteModelOptional.isEmpty()) {
             siteModelOptional = siteRepository.findByUrl("https://" + domain);
-            if (siteModelOptional.isEmpty()) return null;
+            if (siteModelOptional.isEmpty()) {
+                return null;
+            }
         }
         return siteModelOptional.get();
     }

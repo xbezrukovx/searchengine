@@ -50,8 +50,12 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean indexingAll() {
-        if (isIndexing.get()) return false;
-        if (waitingThread != null && waitingThread.isAlive()) return false;
+        if (isIndexing.get()) {
+            return false;
+        }
+        if (waitingThread != null && waitingThread.isAlive()) {
+            return false;
+        }
         isIndexing.set(true);
         logger.info("Indexing has been started.");
         sites.getSites().forEach(site -> {
@@ -76,7 +80,9 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean stopIndexing() {
-        if (waitingThread == null) return false;
+        if (waitingThread == null) {
+            return false;
+        }
         isIndexing.set(false);
         if (waitingThread.isAlive()){
             logger.info("Threads are working now.");

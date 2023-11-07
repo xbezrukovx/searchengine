@@ -53,7 +53,9 @@ public class PageParser extends RecursiveAction {
         page.setPath(sitePath);
         synchronized (PageRepository.class) {
             Optional<Page> optionalPage = pageRepository.findByPathAndSiteModel(sitePath, mainPage);
-            if(optionalPage.isPresent()) return null;
+            if(optionalPage.isPresent()) {
+                return null;
+            }
             page = pageRepository.save(page);
         }
         return page;
@@ -79,7 +81,9 @@ public class PageParser extends RecursiveAction {
         }
         int statusCode = connection.response().statusCode();
         Page page = buildPage(doc, statusCode);
-        if (page == null) return null;
+        if (page == null) {
+            return null;
+        }
         try {
             lemmaPageParser.createLemma(page);
         } catch (IOException e) {
@@ -93,9 +97,13 @@ public class PageParser extends RecursiveAction {
 
     @Override
     protected void compute() {
-        if (IndexingServiceImpl.getIsIndexing()) return;  // Try to exit if indexing had been interrupted
+        if (IndexingServiceImpl.getIsIndexing()) {
+            return;  // Try to exit if indexing had been interrupted
+        }
         Document doc = processThePage();
-        if (doc == null) return;
+        if (doc == null) {
+            return;
+        }
 
         // Makes branches
         List<String> childrenUrls = getLinks(siteUrl, doc);
@@ -114,7 +122,9 @@ public class PageParser extends RecursiveAction {
         Elements elements = document.body().getElementsByTag("a");
         for (Element element : elements) {
             String link = element.absUrl("href");
-            if (isLink(link, url)) links.add(link);
+            if (isLink(link, url)) {
+                links.add(link);
+            }
         }
         return links;
     }

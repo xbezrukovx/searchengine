@@ -9,9 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.BadResponse;
 import searchengine.dto.Response;
 import searchengine.dto.search.SearchResponse;
-import searchengine.dto.search.SiteResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.models.SiteModel;
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
 import searchengine.services.StatisticsService;
@@ -41,7 +39,6 @@ public class ApiController {
     public ResponseEntity<Response> startIndexing() {
         if (indexingService.indexingAll()) {
             return ResponseEntity.ok(new Response(true));
-
         }
         return new ResponseEntity<Response>(
                 new BadResponse(false, "Indexing have been started"),
@@ -74,8 +71,12 @@ public class ApiController {
 
     @GetMapping("/search")
     public ResponseEntity<SearchResponse> search(String query, String site, Integer offset, Integer limit) throws IOException {
-        if (offset == null) offset = 0;
-        if (limit == null) limit = 20;
+        if (offset == null) {
+            offset = 0;
+        }
+        if (limit == null) {
+            limit = 20;
+        }
         SearchResponse searchResponse = searchService.siteSearch(query, site, offset, limit);
         HttpStatus status = HttpStatus.OK;
         if (searchResponse.getError() != null && !searchResponse.getError().isEmpty()) {

@@ -27,15 +27,21 @@ public class MorphologyUtil {
     }
 
     public HashMap<String, Integer> getLemmas(String content) throws IOException {
-        if (content == null) return new HashMap<>();
+        if (content == null) {
+            return new HashMap<>();
+        }
         String text = Jsoup.parse(content).body().text();
         text = text.replaceAll(regex, " ");
         HashMap<String, Integer> lemmas = new HashMap<>();
         for (String word : text.split(" ")) {
             word = word.toLowerCase();
-            if (word.isBlank() || isParticle(word)) continue;
+            if (word.isBlank() || isParticle(word)) {
+                continue;
+            }
             List<String> normalForms = luceneMorph.getNormalForms(word);
-            if (normalForms.isEmpty()) continue;
+            if (normalForms.isEmpty()) {
+                continue;
+            }
             word = normalForms.get(0);
             if (!lemmas.containsKey(word)) {
                 lemmas.put(word, 0);
@@ -61,14 +67,18 @@ public class MorphologyUtil {
             Set<String> set = k.getValue();
             int count = 0;
             for (String s : keyLemmasInString) {
-                if (set.contains(s)) count++;
+                if (set.contains(s)) {
+                    count++;
+                }
             }
             return count;
         })).get();
         String finalString = snippetEntry.getKey();
         if (finalString.length() > 250) {
             int endPos = finalString.indexOf(" ", 250);
-            if (endPos < 0) endPos = finalString.length();
+            if (endPos < 0) {
+                endPos = finalString.length();
+            }
             finalString = finalString.substring(0, endPos) + "...";
         }
         return makeKeyWordsBold(finalString, keyLemmasInString);
@@ -79,14 +89,20 @@ public class MorphologyUtil {
         for (int i = 0; i < strings.length; i++){
             String word = strings[i].replaceAll(regex,"").toLowerCase();
             try {
-                if (word.isBlank() || isParticle(word)) continue;
+                if (word.isBlank() || isParticle(word)) {
+                    continue;
+                }
             } catch (IOException e) {
                 continue;
             }
             List<String> normalForms = luceneMorph.getNormalForms(word);
-            if (normalForms.isEmpty()) continue;
+            if (normalForms.isEmpty()) {
+                continue;
+            }
             word = normalForms.get(0);
-            if (keyWords.contains(word)) strings[i] = "<b>"+strings[i]+"</b>";
+            if (keyWords.contains(word)) {
+                strings[i] = "<b>"+strings[i]+"</b>";
+            }
         }
         StringBuilder result = new StringBuilder();
         for (String string : strings) {

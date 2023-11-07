@@ -32,7 +32,9 @@ public class LemmaPageParser{
 
     public void createLemma(Page page) throws IOException {
         char firstCode = String.valueOf(page.getCode()).charAt(0);
-        if(firstCode == '4' || firstCode == '5') return;
+        if(firstCode == '4' || firstCode == '5') {
+            return;
+        }
         String textHtml = page.getContent();
         SiteModel siteModel = page.getSiteModel();
         HashMap<String, Integer> lemmas = morphologyUtil.getLemmas(textHtml);
